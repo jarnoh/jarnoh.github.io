@@ -1,0 +1,114 @@
+<html>
+<head>
+<title>Glitching the JPEG DQT table</title>
+<style>
+table { width:820px; margin:auto; }
+img { width: 512px; height: 512px; }
+.dqt { width:300px; margin:auto; }
+span { dixsplay:inline-block; float: left; text-align:right; width:12%; margin-bottom:0.2em; }
+</style>
+</head>
+<body>
+
+<h1>Glitching the JPEG DQT table</h1>
+
+<table width=70%>
+<tr>
+<td><h4>Lena</h4><img src=lena.jpg>
+<div class=dqt>
+<h4>Luminance</h4><div id=dqt0></div>
+<h4>Chrominance</h4><div id=dqt1></div>
+</div>
+</td>
+
+<td><h4>Glena</h4><img id=glena>
+<div class=dqt>
+<h4>Luminance</h4><div id=gdqt0></div>
+<h4>Chrominance</h4><div id=gdqt1></div>
+</div>
+</td>
+
+
+</tr>
+</table>
+</body>
+
+<script>
+
+var jpeg_zigzag_order = [
+   0,  1,  5,  6, 14, 15, 27, 28,
+   2,  4,  7, 13, 16, 26, 29, 42,
+   3,  8, 12, 17, 25, 30, 41, 43,
+   9, 11, 18, 24, 31, 40, 44, 53,
+  10, 19, 23, 32, 39, 45, 52, 54,
+  20, 22, 33, 38, 46, 51, 55, 60,
+  21, 34, 37, 47, 50, 56, 59, 61,
+  35, 36, 48, 49, 57, 58, 62, 63
+];
+
+var dqt0_offset = 0x19; // hardcoded for lena.jpg, 8bit dqt table
+var dqt1_offset = 0x5e;
+
+
+function dumpDQT(p, dqt)
+{
+	p.innerHTML='';
+	dqt.forEach(function (v, i) {
+		var n = document.createElement('span');
+		n.textContent = dqt[jpeg_zigzag_order[i]];
+		p.appendChild(n);
+	});
+}
+
+var lenaJPEG;
+var url;
+    
+function randInt(min,max)
+{
+    return (Math.pow(Math.random(), 2.5)*(max-min)+min)|0;
+}    
+    
+function glitch()
+{
+	for(var i=0;i<3;i++) 
+	{	
+		lenaJPEG[dqt0_offset+randInt(0,64)] = randInt(1,256);
+		lenaJPEG[dqt1_offset+randInt(0,64)] = randInt(1,100);
+	}
+	
+	
+	dumpDQT(document.getElementById('gdqt0'), lenaJPEG.slice(dqt0_offset, dqt0_offset+64));
+	dumpDQT(document.getElementById('gdqt1'), lenaJPEG.slice(dqt1_offset, dqt1_offset+64));
+	
+	// leaks memory like theres no tomorrow
+	//var b64 = btoa(String.fromCharCode.apply(null, lenaJPEG));
+	//document.getElementById('glena').src = 'data:image/jpeg;base64,' + b64;
+	
+	if(url) URL.revokeObjectURL(url);
+	var blob = new Blob([lenaJPEG], {type: 'image/jpeg'});
+	url = URL.createObjectURL(blob);
+	
+	var img = document.getElementById('glena');
+	img.src = url;
+}
+
+
+
+var xhr = new XMLHttpRequest();
+xhr.open('GET', 'lena.jpg');
+xhr.responseType = 'arraybuffer';
+
+xhr.onload = function () {
+    lenaJPEG = new Uint8Array(this.response);
+  	dumpDQT(document.getElementById('dqt0'), lenaJPEG.slice(dqt0_offset, dqt0_offset+64));
+	dumpDQT(document.getElementById('dqt1'), lenaJPEG.slice(dqt1_offset, dqt1_offset+64));
+
+//  glitch();  
+    setInterval(glitch, 50);
+};
+
+xhr.send();
+
+</script>
+
+</html>
